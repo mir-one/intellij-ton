@@ -26,7 +26,7 @@ plugins {
     kotlin("jvm") version "1.8.0"
     kotlin("plugin.serialization") version "1.6.21"
     id("org.jetbrains.intellij") version "1.12.0"
-    id("org.jetbrains.grammarkit") version "2022.3"
+    id("org.jetbrains.grammarkit") version "2022.3.1"
     id("org.jetbrains.changelog") version "2.0.0"
 }
 
