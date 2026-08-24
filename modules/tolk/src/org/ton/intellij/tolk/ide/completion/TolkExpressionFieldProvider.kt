@@ -5,6 +5,7 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.InsertHandler
 import com.intellij.codeInsight.completion.InsertionContext
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
+import com.intellij.codeInsight.lookup.Lookup
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.codeInsight.template.impl.ConstantNode
@@ -67,6 +68,13 @@ object TolkExpressionFieldProvider : TolkCompletionProvider() {
         val endLine = document.getLineNumber(originalStructExpr.structExpressionBody.endOffset)
         val singleLine = startLine == endLine
         val comma = if (!singleLine) "," else ""
+        val caretOffset = parameters.editor.caretModel.offset
+        val existingFieldNameSuffixLength = originalStructExpr.structExpressionBody.structExpressionFieldList
+            .asSequence()
+            .filter { it.colon != null }
+            .map { it.identifier }
+            .firstOrNull { caretOffset in it.startOffset..it.endOffset }
+            ?.let { it.endOffset - caretOffset }
 
         val structTy = structExpr.type?.unwrapTypeAlias() as? TolkTyStruct ?: return
         val initedFieldNames = initedFields.mapNotNull {
@@ -82,16 +90,18 @@ object TolkExpressionFieldProvider : TolkCompletionProvider() {
 
             if (!field.canUse(structTy, element)) return@forEachIndexed
 
+            val insertHandler = existingFieldNameSuffixLength?.let {
+                ReplaceFieldNameInsertHandler(it)
+            } ?: TemplateStringInsertHandler(
+                ": \$value$$comma",
+                true,
+                "value" to ConstantNode(typeDefaultValue(field.type)),
+            )
+
             result.addElement(
                 PrioritizedLookupElement.withPriority(
                     field.toLookupElementBuilder(ctx)
-                        .withInsertHandler(
-                            TemplateStringInsertHandler(
-                                ": \$value$$comma",
-                                true,
-                                "value" to ConstantNode(typeDefaultValue(field.type)),
-                            ),
-                        )
+                        .withInsertHandler(insertHandler)
                         .toTolkLookupElement(
                             TolkLookupElementData(elementKind = TolkLookupElementData.ElementKind.FIELD),
                         ),
@@ -122,6 +132,15 @@ object TolkExpressionFieldProvider : TolkCompletionProvider() {
                         .withPriority(TolkCompletionPriorities.KEYWORD),
                 )
             }
+        }
+    }
+
+    private class ReplaceFieldNameInsertHandler(private val oldNameSuffixLength: Int) : InsertHandler<LookupElement> {
+        override fun handleInsert(context: InsertionContext, item: LookupElement) {
+            if (context.completionChar == Lookup.REPLACE_SELECT_CHAR) return
+
+            val oldNameStart = context.tailOffset
+            context.document.deleteString(oldNameStart, oldNameStart + oldNameSuffixLength)
         }
     }
 

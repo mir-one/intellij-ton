@@ -56,6 +56,10 @@ class TolkStructInitCompletionTest : TolkCompletionTestBase() {
         1,
     )
 
+    fun `test field completion replaces existing field name`() = checkFieldNameReplacement('\n')
+
+    fun `test field completion replaces existing field name with replace selection`() = checkFieldNameReplacement('\t')
+
     fun `test field completion with enum type`() = doFirstCompletion(
         """
             enum Color {
@@ -162,5 +166,34 @@ class TolkStructInitCompletionTest : TolkCompletionTestBase() {
         """,
         1,
         "foo",
+    )
+
+    private fun checkFieldNameReplacement(completionChar: Char) = checkCompletion(
+        "bbbb",
+        """
+            struct Foo {
+                a: int,
+                bbbb: int,
+            }
+
+            fun main() {
+                Foo {
+                    /*caret*/a: 100
+                }
+            }
+        """,
+        """
+            struct Foo {
+                a: int,
+                bbbb: int,
+            }
+
+            fun main() {
+                Foo {
+                    bbbb/*caret*/: 100
+                }
+            }
+        """.trimIndent(),
+        completionChar,
     )
 }
